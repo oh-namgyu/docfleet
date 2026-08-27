@@ -159,8 +159,8 @@ def snapshot(root: Path) -> list[tuple[str, str]]:
             kind = "dir"
         else:
             kind = f"file:{path.read_text(encoding='utf-8')}"
-        entries.append((str(relative), kind))
-    return entries
+        entries.append((relative.as_posix(), kind))
+    return sorted(entries)
 
 
 def backup_runs(home_dir: Path) -> list[Path]:

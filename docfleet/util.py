@@ -115,9 +115,13 @@ def link_destination(path: Path) -> Path | None:
     if not is_link(path):
         return None
     try:
-        return Path(os.readlink(str(path)))
+        raw = os.readlink(str(path))
     except OSError:
         return None
+    # Windows junctions read back with the \\?\ extended-length prefix.
+    if raw.startswith("\\\\?\\"):
+        raw = raw[4:]
+    return Path(raw)
 
 
 def create_dir_link(source: Path, target: Path) -> None:
