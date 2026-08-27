@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
+from docfleet import links
+from docfleet.util import create_dir_link, is_link
 from tests.conftest import (
     backup_runs,
     make_dir,
@@ -26,7 +27,7 @@ def test_link_creates_a_directory_link(fleet: Path, tmp_path: Path) -> None:
     target = tmp_path / "agent" / "memory"
     link_memory(fleet, target)
     assert run("link", "--repo", str(fleet), "--machine", "laptop") == 0
-    assert target.is_symlink()
+    assert is_link(target)
     assert target.resolve() == (fleet / "machines" / "laptop" / "memory").resolve()
     assert (target / ".gitkeep").is_file()
 
@@ -34,7 +35,7 @@ def test_link_creates_a_directory_link(fleet: Path, tmp_path: Path) -> None:
 def test_link_expands_a_home_relative_target(fleet: Path, home: Path) -> None:
     set_links(fleet, "laptop", [{"source": "memory", "target": "~/.agent/memory"}])
     assert run("link", "--repo", str(fleet), "--machine", "laptop") == 0
-    assert (home / ".agent" / "memory").is_symlink()
+    assert is_link(home / ".agent" / "memory")
 
 
 def test_link_is_idempotent(fleet: Path, tmp_path: Path, home: Path) -> None:
@@ -64,7 +65,7 @@ def test_link_backs_up_an_existing_directory(
     target = make_dir(tmp_path / "agent" / "memory", notes="local notes")
     link_memory(fleet, target)
     assert run("link", "--repo", str(fleet), "--machine", "laptop") == 0
-    assert target.is_symlink()
+    assert is_link(target)
     manifest = read_manifest(home)
     assert manifest["machine"] == "laptop"
     assert manifest["repo"] == str(fleet)
@@ -81,7 +82,7 @@ def test_link_backs_up_a_stale_link(fleet: Path, tmp_path: Path, home: Path) -> 
     elsewhere = make_dir(tmp_path / "elsewhere")
     target = tmp_path / "agent" / "memory"
     target.parent.mkdir(parents=True)
-    os.symlink(str(elsewhere), str(target), target_is_directory=True)
+    create_dir_link(elsewhere, target)
     link_memory(fleet, target)
     assert run("link", "--repo", str(fleet), "--machine", "laptop") == 0
     assert target.resolve() == (fleet / "machines" / "laptop" / "memory").resolve()
@@ -97,7 +98,7 @@ def test_adopt_moves_the_existing_directory_into_the_repository(
     source = fleet / "machines" / "laptop" / "memory"
     assert (source / "notes").read_text(encoding="utf-8") == "local notes"
     assert not (source / ".gitkeep").exists()
-    assert target.is_symlink()
+    assert is_link(target)
     assert (target / "notes").is_file()
     item = read_manifest(home)["items"][0]
     assert item["mode"] == "adopt"
@@ -112,7 +113,7 @@ def test_adopt_refuses_to_overwrite_a_populated_source(
     target = make_dir(tmp_path / "agent" / "memory", notes="local notes")
     link_memory(fleet, target)
     assert run("link", "--repo", str(fleet), "--machine", "laptop", "--adopt") == 2
-    assert not target.is_symlink()
+    assert not is_link(target)
     assert (target / "notes").is_file()
     assert backup_runs(home) == []
 
@@ -129,7 +130,7 @@ def test_link_finds_the_repository_and_machine_by_itself(
     link_memory(fleet, target)
     monkeypatch.chdir(fleet / "machines" / "laptop")
     assert run("link") == 0
-    assert target.is_symlink()
+    assert is_link(target)
 
 
 @pytest.mark.parametrize(
@@ -182,21 +183,20 @@ def test_a_failing_item_stops_the_run_and_is_recorded(
             {"source": "docs", "target": str(second)},
         ],
     )
-    calls: list[str] = []
-    real_symlink = os.symlink
+    calls: list[Path] = []
 
-    def flaky(src: str, dst: str, **kwargs: object) -> None:
-        calls.append(str(dst))
+    def flaky(source: Path, target: Path) -> None:
+        calls.append(target)
         if len(calls) > 1:
             raise OSError("simulated link failure")
-        real_symlink(src, dst, **kwargs)
+        create_dir_link(source, target)
 
-    monkeypatch.setattr(os, "symlink", flaky)
+    monkeypatch.setattr(links, "create_dir_link", flaky)
     assert run("link", "--repo", str(fleet), "--machine", "laptop") == 1
 
     items = read_manifest(home)["items"]
     assert [item["state"] for item in items] == ["linked", "failed"]
-    assert first.is_symlink()
+    assert is_link(first)
     assert not second.exists()
     backup = Path(items[1]["backup_path"])
     assert (backup / "page").read_text(encoding="utf-8") == "local page"

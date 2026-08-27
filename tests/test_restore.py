@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from docfleet.util import is_link, remove_link
 from tests.conftest import (
     backup_runs,
     make_dir,
@@ -64,7 +65,7 @@ def test_restore_skips_a_target_taken_over_by_new_data(
 ) -> None:
     run("link", "--repo", str(fleet), "--machine", "laptop")
     backup = Path(read_manifest(home)["items"][0]["backup_path"])
-    linked.unlink()
+    remove_link(linked)
     make_dir(linked, fresh="written after linking")
 
     code, payload = run_json(
@@ -81,7 +82,7 @@ def test_a_skipped_item_is_retried_by_a_later_restore(
     fleet: Path, home: Path, linked: Path
 ) -> None:
     run("link", "--repo", str(fleet), "--machine", "laptop")
-    linked.unlink()
+    remove_link(linked)
     make_dir(linked, fresh="written after linking")
     assert run("link", "--repo", str(fleet), "--machine", "laptop", "--restore") == 1
     shutil.rmtree(linked)
@@ -134,7 +135,7 @@ def test_restore_at_selects_an_older_run(
         == 0
     )
     assert (linked / "notes").read_text(encoding="utf-8") == "local notes"
-    assert docs_target.is_symlink()
+    assert is_link(docs_target)
 
 
 def test_restore_without_a_manifest_is_a_configuration_error(fleet: Path) -> None:

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from docfleet.cli import main
+from docfleet.util import is_link, link_destination
 
 BRANCH = "main"
 
@@ -140,14 +141,20 @@ def make_dir(path: Path, **files: str) -> Path:
 
 
 def snapshot(root: Path) -> list[tuple[str, str]]:
-    """Describe every path under root: links, directories and file contents."""
+    """Describe every path under root: links, directories and file contents.
+
+    A link is described by its destination and never descended into, so a
+    POSIX symlink and a Windows junction produce the same shape of report.
+    """
     entries: list[tuple[str, str]] = []
+    links: set[Path] = set()
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root)
-        if ".git" in relative.parts:
+        if ".git" in relative.parts or links.intersection(path.parents):
             continue
-        if path.is_symlink():
-            kind = f"link:{path.readlink()}"
+        if is_link(path):
+            links.add(path)
+            kind = f"link:{link_destination(path)}"
         elif path.is_dir():
             kind = "dir"
         else:

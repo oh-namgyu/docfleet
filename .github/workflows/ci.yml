@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    # Deliberately no `name:` — the default rendering appends the matrix
+    # values, giving: unit (ubuntu-latest, 3.10), unit (ubuntu-latest, 3.12),
+    # unit (macos-latest, 3.12), unit (windows-latest, 3.12).
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.10', '3.12']
+        exclude:
+          # The oldest supported Python is exercised on Linux only; the other
+          # two platforms are here for their filesystem behaviour, not their
+          # interpreter version.
+          - os: macos-latest
+            python: '3.10'
+          - os: windows-latest
+            python: '3.10'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Configure git
+        # The tests create real git repositories and make real commits, so the
+        # runner needs a committer identity and a deterministic initial branch.
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "docfleet CI"
+          git config --global init.defaultBranch main
+
+      - name: Test
+        run: python -m pytest -q
+
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+
+      - name: Run the documented quickstart
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global user.email "ci@example.com"
+          git config --global user.name "docfleet CI"
+          git config --global init.defaultBranch main
+
+          work="$(mktemp -d)"
+          fleet="$work/fleet"
+          agent="$work/agent/memory"
+
+          mkdir -p "$fleet" "$agent"
+          echo "a note the agent wrote" > "$agent/notes.md"
+          git -C "$fleet" init -q -b main
+
+          docfleet init --new "$fleet" --machine laptop
+
+          python - "$fleet" "$agent" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          config = Path(sys.argv[1]) / "machines" / "laptop" / "machine.json"
+          data = json.loads(config.read_text(encoding="utf-8"))
+          data["links"] = [{"source": "memory", "target": sys.argv[2]}]
+          config.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          PY
+
+          docfleet link --adopt --repo "$fleet"
+          docfleet index --repo "$fleet"
+
+          # Commit before linting, exactly as the quickstart does: on a
+          # repository with no commits at all, git status collapses untracked
+          # directories, which doctor cannot attribute to a machine.
+          git -C "$fleet" add -A
+          git -C "$fleet" commit -qm "create fleet"
+
+          docfleet doctor --repo "$fleet"
+
+          # The adopted note must now live inside the repository, and the agent
+          # path must be a link rather than a directory of its own.
+          test -L "$agent"
+          grep -q "a note the agent wrote" "$fleet/machines/laptop/memory/notes.md"
+          test -f "$fleet/INDEX.md"
+
+          # And the whole run must be reversible.
+          docfleet link --restore --repo "$fleet"
+          test ! -L "$agent"
+          grep -q "a note the agent wrote" "$agent/notes.md"
+
+          echo "smoke ok"

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from docfleet import doctor
+from docfleet.util import create_dir_link, is_link, remove_link
 from tests.conftest import commit_all, run, run_json, set_links, write_doc
 
 
@@ -126,7 +127,7 @@ def test_link_check_reports_a_link_that_was_removed(
     set_links(fleet_git, "laptop", [{"source": "memory", "target": str(target)}])
     commit_all(fleet_git, "declare a link")
     assert run("link", "--repo", str(fleet_git), "--machine", "laptop") == 0
-    target.unlink()
+    remove_link(target)
     code, payload = check_doctor(capsys, fleet_git)
     assert code == 1
     assert checks(payload) == {doctor.CHECK_LINK}
@@ -142,7 +143,7 @@ def test_link_check_reports_a_link_pointing_elsewhere(
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.symlink_to(elsewhere)
+    create_dir_link(elsewhere, target)
     code, payload = check_doctor(capsys, fleet_git)
     assert code == 1
     assert checks(payload) == {doctor.CHECK_LINK}
@@ -188,7 +189,7 @@ def test_fix_restores_a_link_and_the_index(
     target = tmp_path / "agent" / "memory"
     set_links(fleet_git, "laptop", [{"source": "memory", "target": str(target)}])
     assert run("link", "--repo", str(fleet_git), "--machine", "laptop") == 0
-    target.unlink()
+    remove_link(target)
     (fleet_git / "INDEX.md").unlink()
 
     code, payload = check_doctor(capsys, fleet_git, "--fix")
@@ -198,7 +199,7 @@ def test_fix_restores_a_link_and_the_index(
         doctor.CHECK_LINK,
         doctor.CHECK_INDEX,
     }
-    assert target.is_symlink()
+    assert is_link(target)
     assert (fleet_git / "INDEX.md").is_file()
 
 
