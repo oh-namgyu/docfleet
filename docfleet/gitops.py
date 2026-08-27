@@ -124,9 +124,8 @@ def rebase_in_progress(repo: Path) -> bool:
     return (git_dir / "rebase-merge").exists() or (git_dir / "rebase-apply").exists()
 
 
-def changed_paths(repo: Path) -> list[str]:
-    """Return every path with staged, unstaged or untracked changes."""
-    tokens = git_text(repo, "status", "--porcelain", "-z").split("\0")
+def _status_paths(repo: Path, extra: list[str]) -> list[str]:
+    tokens = git_text(repo, "status", "--porcelain", "-z", *extra).split("\0")
     paths: list[str] = []
     index = 0
     while index < len(tokens):
@@ -139,7 +138,24 @@ def changed_paths(repo: Path) -> list[str]:
         if ("R" in code or "C" in code) and index < len(tokens):
             paths.append(tokens[index])
             index += 1
-    return sorted(set(paths))
+    return paths
+
+
+def changed_paths(repo: Path) -> list[str]:
+    """Return every path with staged, unstaged or untracked changes.
+
+    Porcelain collapses a fully-untracked directory to a single "dir/" entry
+    (e.g. "machines/" in a repo with no commits yet), which hides which
+    machine the files belong to. Such entries are expanded to their
+    individual paths so ownership checks stay accurate.
+    """
+    expanded: set[str] = set()
+    for path in _status_paths(repo, []):
+        if path.endswith("/"):
+            expanded.update(_status_paths(repo, ["-uall", "--", path]) or [path])
+        else:
+            expanded.add(path)
+    return sorted(expanded)
 
 
 def _divergence(repo: Path, upstream: str) -> tuple[int, int]:

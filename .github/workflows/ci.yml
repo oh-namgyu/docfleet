@@ -102,9 +102,9 @@ jobs:
           docfleet link --adopt --repo "$fleet"
           docfleet index --repo "$fleet"
 
-          # Commit before linting, exactly as the quickstart does: on a
-          # repository with no commits at all, git status collapses untracked
-          # directories, which doctor cannot attribute to a machine.
+          # Lint once before any commit exists (collapsed untracked dirs must
+          # not confuse ownership checks), then commit as the quickstart does.
+          docfleet doctor --repo "$fleet"
           git -C "$fleet" add -A
           git -C "$fleet" commit -qm "create fleet"
 

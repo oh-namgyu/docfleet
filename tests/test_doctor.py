@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+import subprocess
+
 from docfleet import doctor
 from docfleet.util import create_dir_link, is_link, remove_link
 from tests.conftest import commit_all, run, run_json, set_links, write_doc
@@ -231,3 +233,17 @@ def test_doctor_outside_a_git_repository_is_an_environment_error(
     code, payload = check_doctor(capsys, fleet)
     assert code == 2
     assert "not a git repository" in payload["error"]
+
+
+def test_doctor_clean_on_fresh_fleet_with_no_commits(
+    capsys: pytest.CaptureFixture, tmp_path: Path
+) -> None:
+    """A just-initialised fleet (no commits yet) must not trip cross-machine:
+    porcelain collapses untracked dirs to "machines/", which used to be
+    misread as another machine's folder."""
+    repo = tmp_path / "fresh"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    assert run("init", "--new", str(repo), "--machine", "laptop") == 0
+    code, payload = check_doctor(capsys, repo)
+    assert "cross-machine" not in checks(payload)
