@@ -10,9 +10,17 @@ from __future__ import annotations
 
 
 class DocfleetError(Exception):
-    """Base class for errors that map onto a documented exit code."""
+    """Base class for errors that map onto a documented exit code.
+
+    Extra keyword arguments become `details`, which `--json` output merges
+    into the error document (for example the git `state` that caused it).
+    """
 
     exit_code: int = 2
+
+    def __init__(self, message: str, **details: object) -> None:
+        super().__init__(message)
+        self.details: dict[str, object] = details
 
 
 class ConfigError(DocfleetError):

@@ -38,7 +38,10 @@ SHARED_DIR = "shared"
 FLEET_FILE = "fleet.json"
 MACHINE_FILE = "machine.json"
 README_FILE = "README.md"
+INDEX_FILE = "INDEX.md"
 KEEP_FILE = ".gitkeep"
+
+ROOT_FILES: tuple[str, ...] = (FLEET_FILE, README_FILE, INDEX_FILE)
 
 MACHINE_SUBDIRS: tuple[str, ...] = ("docs", "memory")
 SHARED_SUBDIRS: tuple[str, ...] = ("commands", "standards")
@@ -65,6 +68,23 @@ def validate_machine_name(name: str) -> str:
             "hyphens, starting with a letter or digit (for example: laptop)"
         )
     return name
+
+
+def writable_prefixes(machine: str) -> tuple[str, ...]:
+    """Return the repository path prefixes `machine` is allowed to write."""
+    return (f"{MACHINES_DIR}/{machine}/", f"{SHARED_DIR}/")
+
+
+def is_writable_path(path: str, machine: str) -> bool:
+    """Return True when a repository-relative path belongs to a writable area.
+
+    A machine owns `machines/<its own name>/`, every machine shares `shared/`,
+    and the root metadata files are common property. Everything else -- above
+    all `machines/<another machine>/` -- is read-only for this machine.
+    """
+    if path in ROOT_FILES:
+        return True
+    return any(path.startswith(prefix) for prefix in writable_prefixes(machine))
 
 
 def machine_dir(repo: Path, name: str) -> Path:

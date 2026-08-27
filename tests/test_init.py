@@ -115,7 +115,9 @@ def test_error_json_output(tmp_path: Path, capsys: pytest.CaptureFixture) -> Non
 
 
 @pytest.mark.parametrize("command", ["start", "close", "doctor", "index"])
-def test_later_stage_commands_are_stubs(command: str) -> None:
-    with pytest.raises(SystemExit) as excinfo:
-        run(command)
-    assert excinfo.value.code == 2
+def test_session_commands_need_a_repository(
+    command: str, tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    code, payload = run_json(capsys, command, "--repo", str(tmp_path / "nope"))
+    assert code == 2
+    assert payload["exit_code"] == 2
