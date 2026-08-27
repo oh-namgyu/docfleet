@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docfleet"
+version = "0.1.0"
+description = "Git-native layout convention and zero-dependency CLI for keeping agent docs and memory in sync across machines"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "oh-namgyu" }]
+keywords = ["docs", "sync", "symlink", "multi-machine", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+docfleet = "docfleet.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["docfleet*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
