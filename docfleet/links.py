@@ -106,7 +106,9 @@ def _resolve_target(raw: str, repo: Path) -> Path:
 def _classify(source: Path, target: Path, adopt: bool) -> tuple[str, str]:
     if is_link(target):
         destination = link_destination(target)
-        if destination is not None and Path(os.path.abspath(str(destination))) == source:
+        if destination is not None and os.path.normcase(
+            os.path.abspath(str(destination))
+        ) == os.path.normcase(str(source)):
             return MODE_NONE, ACTION_SKIP
         return MODE_BACKUP, ACTION_LINK
     if target.exists():
