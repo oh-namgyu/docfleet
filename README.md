@@ -1,12 +1,12 @@
 # docfleet
 
-**A git-native layout convention — plus a zero-dependency CLI — for keeping AI-agent docs and memory in sync across your machines.**
-
 [![CI](https://github.com/oh-namgyu/docfleet/actions/workflows/ci.yml/badge.svg)](https://github.com/oh-namgyu/docfleet/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 
 > **한글 요약** — docfleet은 여러 대의 컴퓨터에서 쓰는 AI 에이전트의 문서와 메모리를 하나의 git 저장소로 모으는 폴더 규약이자, 그 규약을 지켜 주는 의존성 없는 파이썬 CLI입니다. 저장소는 컴퓨터마다 하나씩 갖는 `machines/<이름>/` 과 모두가 함께 쓰는 `shared/`, 그리고 등록부인 `fleet.json` 으로 이루어집니다. 각 컴퓨터는 에이전트가 실제로 읽는 경로(예: `~/.myagent/memory`)를 자기 폴더로 **디렉터리 심링크(윈도우에서는 정션)** 로 연결하므로, 파일을 복사하지 않고 `git pull` 한 번이면 맥락이 옮겨 갑니다. 규칙은 단순합니다 — 자기 폴더는 읽기·쓰기, 남의 폴더는 읽기 전용, `shared/` 는 모두 쓰기 가능이며 `docfleet close` 가 커밋 직전에 이를 강제합니다. 서버도, 데몬도, 런타임 의존성도 없습니다.
+
+**A git-native layout convention — plus a zero-dependency CLI — for keeping AI-agent docs and memory in sync across your machines.**
 
 ---
 
@@ -210,4 +210,4 @@ docfleet moves real directories around, so it owes you a hard contract. The cont
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Security policy: [SECURITY.md](SECURITY.md).
